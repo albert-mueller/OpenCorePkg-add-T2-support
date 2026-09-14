@@ -213,6 +213,7 @@ Provided by OcBinaryData. Used automatically by OC in some circumstances, if pro
  - **Tool** - Generic tool (fallback: **HardDrive**)
  - **Other** - Other OS (fallback: **HardDrive**)
  - **Windows** - Microsoft Windows (fallback: **HardDrive**)
+ - **OpticalDrive** - Optical disc drive (fallback: **HardDrive**)
 
 ### Additional Optional
 
@@ -221,6 +222,7 @@ NOT provided by OcBinaryData. Are used automatically by OC in some circumstances
  - **Apple** - macOS (fallback: **HardDrive**)
  - **ExtApple** - macOS (on external drive) (fallback: **ExtHardDrive**)
  - **ExtWindows** - Microsoft Windows (on external drive) (fallback: **ExtHardDrive**)
+ - **ExtOpticalDrive** - External optical disc drive (fallback: **ExtHardDrive**)
  - **ResetNVRAM** - Reset NVRAM tool (fallback: **Tool**)
 
 ---
