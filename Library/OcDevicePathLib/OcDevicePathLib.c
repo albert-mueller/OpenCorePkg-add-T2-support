@@ -409,6 +409,123 @@ InternalExpandNewPath (
 }
 
 /**
+  Replace an unresolved ATAPI node with a unique NVMe whole-disk device path.
+
+  @param[in,out] DevicePath      Pool-allocated device path, reallocated on success.
+  @param[in,out] DevicePathNode  ATAPI node, updated to the replacement NVMe node.
+
+  @retval 0  Path was not modified.
+  @retval 1  ATAPI node was replaced with a verified firmware disk path.
+**/
+STATIC
+INTN
+InternalFixAppleBootDevicePathAtapiNode (
+  IN OUT EFI_DEVICE_PATH_PROTOCOL  **DevicePath,
+  IN OUT EFI_DEVICE_PATH_PROTOCOL  **DevicePathNode
+  )
+{
+  EFI_DEVICE_PATH_PROTOCOL  *Node;
+  EFI_DEVICE_PATH_PROTOCOL  *Suffix;
+  EFI_DEVICE_PATH_PROTOCOL  *DiskPath;
+  EFI_DEVICE_PATH_PROTOCOL  *FixedPath;
+  EFI_DEVICE_PATH_PROTOCOL  *MatchPath;
+  EFI_HANDLE                *HandleBuffer;
+  EFI_HANDLE                Match;
+  EFI_STATUS                Status;
+  UINTN                     PrefixSize;
+  UINTN                     Index;
+  UINTN                     HandleCount;
+
+  PrefixSize = (UINTN)*DevicePathNode - (UINTN)*DevicePath;
+  Suffix     = NextDevicePathNode (*DevicePathNode);
+
+  //
+  // A path that already resolves to Block I/O needs no fallback.
+  //
+  Node   = *DevicePath;
+  Status = gBS->LocateDevicePath (&gEfiBlockIoProtocolGuid, &Node, &Match);
+  if (!EFI_ERROR (Status) && ((UINTN)Node >= (UINTN)Suffix)) {
+    return 0;
+  }
+
+  HandleCount = 0;
+  Status      = gBS->LocateHandleBuffer (
+                       ByProtocol,
+                       &gEfiBlockIoProtocolGuid,
+                       NULL,
+                       &HandleCount,
+                       &HandleBuffer
+                       );
+  if (EFI_ERROR (Status)) {
+    return 0;
+  }
+
+  Match     = NULL;
+  MatchPath = NULL;
+  for (Index = 0; Index < HandleCount; ++Index) {
+    Status = gBS->HandleProtocol (
+                    HandleBuffer[Index],
+                    &gEfiDevicePathProtocolGuid,
+                    (VOID **)&DiskPath
+                    );
+    if (  EFI_ERROR (Status)
+       || (GetDevicePathSize (DiskPath) != PrefixSize + sizeof (NVME_NAMESPACE_DEVICE_PATH) + END_DEVICE_PATH_LENGTH)
+       || (CompareMem (DiskPath, *DevicePath, PrefixSize) != 0))
+    {
+      continue;
+    }
+
+    Node = (EFI_DEVICE_PATH_PROTOCOL *)((UINT8 *)DiskPath + PrefixSize);
+    //
+    // Apple firmware uses subtype 0x16 for its 16-byte NVMe namespace node.
+    //
+    if (  (DevicePathType (Node) != MESSAGING_DEVICE_PATH)
+       || (  (DevicePathSubType (Node) != MSG_NVME_NAMESPACE_DP)
+          && (DevicePathSubType (Node) != MSG_SASEX_DP))
+       || (DevicePathNodeLength (Node) != sizeof (NVME_NAMESPACE_DEVICE_PATH))
+       || !IsDevicePathEnd (NextDevicePathNode (Node)))
+    {
+      continue;
+    }
+
+    if (Match != NULL) {
+      DEBUG ((DEBUG_INFO, "OCDP: Ambiguous ATAPI disk, keeping original path\n"));
+      FreePool (HandleBuffer);
+      return 0;
+    }
+
+    Match     = HandleBuffer[Index];
+    MatchPath = DiskPath;
+  }
+
+  FreePool (HandleBuffer);
+  if (Match == NULL) {
+    return 0;
+  }
+
+  //
+  // Preserve the complete suffix, including partition, APFS and file nodes.
+  // The caller owns the original allocation.
+  //
+  FixedPath = AppendDevicePath (MatchPath, Suffix);
+  if (FixedPath == NULL) {
+    return 0;
+  }
+
+  Node   = FixedPath;
+  Status = gBS->LocateDevicePath (&gEfiBlockIoProtocolGuid, &Node, &Match);
+  if (EFI_ERROR (Status)) {
+    FreePool (FixedPath);
+    return 0;
+  }
+
+  DEBUG ((DEBUG_INFO, "OCDP: Fixed ATAPI path using matching NVMe disk\n"));
+  *DevicePath     = FixedPath;
+  *DevicePathNode = (EFI_DEVICE_PATH_PROTOCOL *)((UINT8 *)FixedPath + PrefixSize);
+  return 1;
+}
+
+/**
   Fix Apple Boot Device Path VirtIO node to be compatible with conventional UEFI
   implementations. Currently only APFS file system is supported as VirtIO support
   landed in macOS in 10.14, which was APFS-only.
@@ -619,6 +736,22 @@ OcFixAppleBootDevicePathNode (
 
   if (NodeType == MESSAGING_DEVICE_PATH) {
     switch (NodeSubType) {
+      case MSG_ATAPI_DP:
+        OldPath = *DevicePath;
+        Result  = InternalFixAppleBootDevicePathAtapiNode (
+                    DevicePath,
+                    DevicePathNode
+                    );
+        if (Result > 0) {
+          if (RestoreContext != NULL) {
+            RestoreContext->OldPath = OldPath;
+          } else {
+            FreePool (OldPath);
+          }
+        }
+
+        return Result;
+
       case MSG_SATA_DP:
         if (Node.Sata->PortMultiplierPortNumber != 0xFFFF) {
           if (RestoreContext != NULL) {
@@ -912,6 +1045,16 @@ OcFixAppleBootDevicePath (
   ASSERT ((UINTN)*RemainingDevicePath >= (UINTN)*DevicePath);
   ASSERT ((UINTN)*RemainingDevicePath < ((UINTN)*DevicePath) + DevicePathSize);
   DEBUG_CODE_END ();
+
+  //
+  // A successful expansion no longer needs the original path for rollback.
+  //
+  if (NodePatched != 0) {
+    OcFixAppleBootDevicePathNodeRestoreFree (
+      *DevicePath,
+      &FirstNodeRestoreContext
+      );
+  }
 
   return NodePatched;
 }
