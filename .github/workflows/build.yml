@@ -7,6 +7,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 env:
   PROJECT_TYPE: UEFI
   FORCE_INSTALL: 1
@@ -26,6 +29,8 @@ jobs:
       HOMEBREW_NO_AUTO_UPDATE: 1
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Linux Toolchain
         run: |
@@ -63,13 +68,15 @@ jobs:
       TOOLCHAINS: CLANGPDB
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Apply Docker AppArmor settings
         run: |
           src=$(/usr/bin/curl -LfsS https://raw.githubusercontent.com/acidanthera/ocbuild/master/docker-apparmor.sh) && eval "$src" || exit 1
 
       - name: Use Docker in rootless mode.
-        uses: ScribeMD/rootless-docker@0.2.2
+        uses: ScribeMD/rootless-docker@6bd157a512c2fafa4e0243a8aa87d964eb890886 # 0.2.2
 
       - name: ./build_duet.tool
         run: docker compose run build-duet
@@ -90,13 +97,15 @@ jobs:
       TOOLCHAINS: GCC
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Apply Docker AppArmor settings
         run: |
           src=$(/usr/bin/curl -LfsS https://raw.githubusercontent.com/acidanthera/ocbuild/master/docker-apparmor.sh) && eval "$src" || exit 1
 
       - name: Use Docker in rootless mode.
-        uses: ScribeMD/rootless-docker@0.2.2
+        uses: ScribeMD/rootless-docker@6bd157a512c2fafa4e0243a8aa87d964eb890886 # 0.2.2
 
       - name: ./build_duet.tool
         run: docker compose run build-duet
@@ -117,13 +126,15 @@ jobs:
       TOOLCHAINS: CLANGDWARF
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Apply Docker AppArmor settings
         run: |
           src=$(/usr/bin/curl -LfsS https://raw.githubusercontent.com/acidanthera/ocbuild/master/docker-apparmor.sh) && eval "$src" || exit 1
 
       - name: Use Docker in rootless mode.
-        uses: ScribeMD/rootless-docker@0.2.2
+        uses: ScribeMD/rootless-docker@6bd157a512c2fafa4e0243a8aa87d964eb890886 # 0.2.2
 
       - name: ./build_duet.tool
         run: docker compose run build-duet
@@ -142,13 +153,15 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Apply Docker AppArmor settings
         run: |
           src=$(/usr/bin/curl -LfsS https://raw.githubusercontent.com/acidanthera/ocbuild/master/docker-apparmor.sh) && eval "$src" || exit 1
 
       - name: Use Docker in rootless mode.
-        uses: ScribeMD/rootless-docker@0.2.2
+        uses: ScribeMD/rootless-docker@6bd157a512c2fafa4e0243a8aa87d964eb890886 # 0.2.2
 
       - name: Docs
         run: docker compose run build-docs
@@ -164,7 +177,9 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v6
-      - uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          persist-credentials: false
+      - uses: TheMrMilchmann/setup-msvc-dev@368ef7d1ee4d1171b31d4a7f67f4d954f903f5a9 # v4.1.0
         with:
           arch: x86
       - name: Install Dependencies

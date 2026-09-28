@@ -7,6 +7,9 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 env:
   PROJECT_TYPE: UEFI
 
@@ -19,6 +22,8 @@ jobs:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       # Due to brew adopting PEP 668 https://github.com/orgs/Homebrew/discussions/3404 pip installs should be in a Python venv
       - name: Install Dependencies
@@ -69,6 +74,8 @@ jobs:
       JOB_TYPE: ANALYZE
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Dependencies
         run: |
@@ -92,6 +99,8 @@ jobs:
     if: github.repository_owner == 'acidanthera' && github.ref_name == 'master'
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Dependencies
         run: |
@@ -110,6 +119,8 @@ jobs:
     if: github.repository_owner == 'acidanthera' && github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Dependencies
         run: |
