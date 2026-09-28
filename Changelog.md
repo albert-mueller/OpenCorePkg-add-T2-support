@@ -1,5 +1,12 @@
 OpenCore Changelog
 ==================
+#### v2.0.7
+- Fixed out-of-bounds access when parsing values ending in a backslash (e.g. in GRUB or os-release files read by OpenLinuxBoot)
+- Fixed use of an uninitialised buffer when checking overlong or non-ASCII load options for boot arguments
+- Fixed kernel panic logs being dropped when they contain no encoded kext list
+- Hardened GitHub Actions workflows (read-only token by default, no persisted checkout credentials, pinned third-party actions)
+- Merged upstream changes: fixed ATAPI hibernation device paths on NVMe Macs, updated MaximumOSVersion in DataBase, cleaned up INF, DSC and DEC files
+
 #### v1.0.8
 - Fixed macrecovery utility on Windows, thx @pzhlkj6612
 - Added launch helper for macrecovery utility on Windows, thx @aayushprsingh
