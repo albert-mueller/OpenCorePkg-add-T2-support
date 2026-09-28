@@ -156,7 +156,7 @@ PanicExpand (
   AllocatedSize = 0;
   CurrentSize   = 0;
 
-  TmpSize = EncodedStart - EncodedStart;
+  TmpSize = EncodedStart - Encoded;
 
   if (!PanicExpandPutBuf (&Expanded, &AllocatedSize, &CurrentSize, Encoded, TmpSize)) {
     return NULL;
@@ -325,5 +325,5 @@ OcReadApplePanicLog (
 
   *PanicSize = (UINT32)TmpDataSize;
 
-  return TmpData;
+  return PanicData;
 }

@@ -308,8 +308,7 @@ OcCheckArgumentFromEnv (
   CHAR8        BootArgsVar[BOOT_LINE_LENGTH];
   UINTN        BootArgsVarLen;
   EFI_STATUS   Status;
-  UINTN        LastIndex;
-  CHAR16       Last;
+  UINTN        Index;
   BOOLEAN      HasArgument;
   CONST CHAR8  *ArgValue;
   UINTN        ArgValueLength;
@@ -322,24 +321,22 @@ OcCheckArgumentFromEnv (
 
     if ((Options != NULL) && (OptionsSize > 0)) {
       //
-      // Just in case we do not have 0-termination.
-      // This may cut some data with unexpected options, but it is not like we care.
+      // Load options are not trusted: they may be unterminated, longer than
+      // BOOT_LINE_LENGTH or contain non-ASCII characters. UnicodeStrToAsciiStrS
+      // fails without writing anything in those cases, which previously left
+      // BootArgsVar uninitialised and unterminated. Copy with explicit bounds,
+      // truncating overlong options and replacing non-ASCII characters.
       //
-      LastIndex          = OptionsSize - 1;
-      Last               = Options[LastIndex];
-      Options[LastIndex] = '\0';
+      for (Index = 0; Index < OptionsSize && Index < BOOT_LINE_LENGTH - 1 && Options[Index] != CHAR_NULL; ++Index) {
+        BootArgsVar[Index] = (Options[Index] < 0x80) ? (CHAR8)Options[Index] : '?';
+      }
 
-      UnicodeStrToAsciiStrS (Options, BootArgsVar, BOOT_LINE_LENGTH);
+      BootArgsVar[Index] = '\0';
 
       ArgValue = OcGetArgumentFromCmd (BootArgsVar, Argument, ArgumentLength, &ArgValueLength);
       if (ArgValue != NULL) {
         HasArgument = TRUE;
       }
-
-      //
-      // Options do not belong to us, restore the changed value.
-      //
-      Options[LastIndex] = Last;
     }
   }
 
@@ -579,7 +576,7 @@ OcParseVars (
           State     = PARSE_VARS_VALUE;
         } else if (((State != PARSE_VARS_QUOTED_VALUE) || (QuoteChar == L'"')) && (Ch == L'\\')) {
           NewPos = (UINT8 *)Pos + ((StringFormat == OcStringFormatUnicode) ? sizeof (CHAR16) : sizeof (CHAR8));
-          NewCh  = (StringFormat == OcStringFormatUnicode) ? *((CHAR16 *)Pos) : *((CHAR8 *)Pos);
+          NewCh  = (StringFormat == OcStringFormatUnicode) ? *((CHAR16 *)NewPos) : *((CHAR8 *)NewPos);
           //
           // https://www.gnu.org/software/bash/manual/html_node/Double-Quotes.html
           //
